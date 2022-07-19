@@ -20,6 +20,7 @@ const optionDefinitions = [
     multiple: true,
   },
   {name: 'versions', alias: 'v', type: String, multiple: true},
+  {name: 'releaseContent', alias: 'r', type: String},
 ];
 
 /**
@@ -31,37 +32,22 @@ const CHANGELOG_CACHE = new Map<string, Changelog>();
 export const run = async () => {
   const options = commandLineArgs(optionDefinitions);
 
+  if (options.releaseContent && options.files) {
+    exitWithUsageError();
+  }
+
+  if (options.releaseContent) {
+    await generateReleaseImage(marked(options.releaseContent));
+    process.exit();
+  }
+
   if (
     !options.files ||
     !Array.isArray(options.files) ||
     (Array.isArray(options.versions) &&
       options.versions.length !== options.files.length)
   ) {
-    console.error(
-      `
-USAGE
-    release-image CHANGELOG_PATH
-    release-image (-f CHANGELOG_PATH [-v VERSION])...
-
-EXAMPLES
-    To generate the release image for the reactive-element package:
-
-        release-image packages/reactive-element/CHANGELOG.md
-
-    For multiple packages in a single image:
-
-        release-image reactive-element/CHANGELOG.md lit-html/CHANGELOG.md
-
-    To generate an image composed of specific version numbers, including
-    multiple versions of the same package:
-
-        release-image -f reactive-element/CHANGELOG.md -v 3.2.0 \\
-                      -f lit-html/CHANGELOG.md -v 2.0.1 \\
-                      -f lit-html/CHANGELOG.md -v 2.0.0
-
-          `.trim()
-    );
-    process.exit(1);
+    exitWithUsageError();
   }
 
   const releasesToRender: Release[] = [];
@@ -97,7 +83,22 @@ EXAMPLES
     release.title = changelog.packageName;
     releasesToRender.push(release);
   }
+  await generateReleaseImage(
+    releasesToRender
+      .map(
+        ({title, body, version}) =>
+          `<h2><span class="name">${title}</span> ${version}</h2>
+       ${marked(body)}`
+      )
+      .join('')
+  );
+  process.exit();
+};
 
+/**
+ * Takes contents and generates an image.
+ */
+async function generateReleaseImage(contents: string) {
   // colors taken from https://github.com/dracula/dracula-theme
   const html = `
      <!doctype html>
@@ -134,13 +135,7 @@ EXAMPLES
          </style>
        </head>
        <body>
-         ${releasesToRender
-           .map(
-             ({title, body, version}) =>
-               `<h2><span class="name">${title}</span> ${version}</h2>
-              ${marked(body)}`
-           )
-           .join('')}
+         ${contents}
        </body>
      </html>
    `;
@@ -166,8 +161,41 @@ EXAMPLES
   });
   console.log(`Wrote screenshot to '${imageFileName}'`);
   await browser.close();
-  process.exit();
-};
+}
+
+function exitWithUsageError() {
+  console.error(
+    `
+USAGE
+  release-image CHANGELOG_PATH
+  release-image (-f CHANGELOG_PATH [-v VERSION])...
+  release-image --releaseContent RELEASE_CONTENTS
+
+EXAMPLES
+  To generate the release image for the reactive-element package:
+
+      release-image packages/reactive-element/CHANGELOG.md
+
+  For multiple packages in a single image:
+
+      release-image reactive-element/CHANGELOG.md lit-html/CHANGELOG.md
+
+  To generate an image composed of specific version numbers, including
+  multiple versions of the same package:
+
+      release-image -f reactive-element/CHANGELOG.md -v 3.2.0 \\
+                    -f lit-html/CHANGELOG.md -v 2.0.1 \\
+                    -f lit-html/CHANGELOG.md -v 2.0.0
+
+  To pass arbitrary contents into the image <body>, use the --releaseContent
+  option (or -r):
+
+      release-image -r "<p>Arbitrary Release Contents</p>"
+
+        `.trim()
+  );
+  process.exit(1);
+}
 
 const latestVersion = {};
 

@@ -64,6 +64,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.LIT_ROBOT_AUTOMATION_PAT }}
           NPM_TOKEN: ${{ secrets.LIT_ROBOT_NPM_PUBLISH_ACCESS_TOKEN }}
 
+      - name: Build release-image script
+        if: steps.cs.outputs.published == 'false'
+        working-directory: lit/packages/internal-scripts
+        run: npm run build
+
+      - name: Generate release image artifact
+        if: steps.cs.outputs.published == 'false'
+        with:
+          cwd: lit
+        run: |
+          $(node scripts/fetch-release-changelog.js <<< ${{ steps.cs.outputs.pullRequestNumber }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: ReleaseImage
+          path: release.png
+
       - name: Checkout dist repo
         uses: actions/checkout@v2
         # GitHub Actions outputs are strings and the string 'false' converts to
