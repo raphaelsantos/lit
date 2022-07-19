@@ -10,6 +10,7 @@ import {marked} from 'marked';
 import puppeteer from 'puppeteer';
 import {readFile} from 'fs/promises';
 import path from 'path';
+import {existsSync, readFileSync} from 'fs';
 
 const optionDefinitions = [
   {
@@ -20,8 +21,14 @@ const optionDefinitions = [
     multiple: true,
   },
   {name: 'versions', alias: 'v', type: String, multiple: true},
-  {name: 'releaseContent', alias: 'r', type: String},
+  {name: 'markdownFile', alias: 'm', type: String},
 ];
+
+interface CliOptions {
+  files?: string[];
+  versions?: string[];
+  markdownFile?: string;
+}
 
 /**
  * A cache of the parsed changelogs such that a package may be referenced
@@ -30,14 +37,21 @@ const optionDefinitions = [
 const CHANGELOG_CACHE = new Map<string, Changelog>();
 
 export const run = async () => {
-  const options = commandLineArgs(optionDefinitions);
+  const options = commandLineArgs(optionDefinitions) as CliOptions;
 
-  if (options.releaseContent && options.files) {
+  if (options.markdownFile && options.files) {
     exitWithUsageError();
   }
 
-  if (options.releaseContent) {
-    await generateReleaseImage(marked(options.releaseContent));
+  if (options.markdownFile) {
+    if (!existsSync(options.markdownFile)) {
+      console.error(
+        `Could not find markdown file at path: '${options.markdownFile}'`
+      );
+      process.exit(1);
+    }
+    const contents = readFileSync(options.markdownFile, {encoding: 'utf-8'});
+    await generateReleaseImage(marked(contents));
     process.exit();
   }
 
@@ -163,13 +177,13 @@ async function generateReleaseImage(contents: string) {
   await browser.close();
 }
 
-function exitWithUsageError() {
+function exitWithUsageError(): never {
   console.error(
     `
 USAGE
   release-image CHANGELOG_PATH
   release-image (-f CHANGELOG_PATH [-v VERSION])...
-  release-image --releaseContent RELEASE_CONTENTS
+  release-image --markdownFile MARKDOWN_PATH
 
 EXAMPLES
   To generate the release image for the reactive-element package:
@@ -187,10 +201,10 @@ EXAMPLES
                     -f lit-html/CHANGELOG.md -v 2.0.1 \\
                     -f lit-html/CHANGELOG.md -v 2.0.0
 
-  To pass arbitrary contents into the image <body>, use the --releaseContent
-  option (or -r):
+  To pass arbitrary contents into the image <body>, use the --markdownFile
+  option (or -m):
 
-      release-image -r "<p>Arbitrary Release Contents</p>"
+      release-image -m releaseContents.md
 
         `.trim()
   );

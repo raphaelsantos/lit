@@ -15,7 +15,11 @@ import * as https from 'https';
  * https://github.com/changesets/action#outputs
  */
 
-const pullRequestNumber = fs.readFileSync(process.stdin.fd, 'utf-8')?.trim();
+const pullRequestNumber = fs.readFileSync(process.stdin.fd, 'utf-8').trim();
+if (!pullRequestNumber || isNaN(parseInt(pullRequestNumber, 10))) {
+  console.error(`No pullRequestNumber from changeset action.`);
+  process.exit(1);
+}
 const GITHUB_GET_PR = `https://api.github.com/repos/lit/lit/pulls/${pullRequestNumber}`;
 
 const response = await new Promise((resolve) => {
