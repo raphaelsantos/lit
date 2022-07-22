@@ -4,8 +4,9 @@ on: [pull_request]
 
 jobs:
   release-image:
-    # Don't run on forks.
-    if: github.repository == 'lit/lit'
+    # Only generate the release image from the PR contents if the PR was in the
+    # monorepo and opened by lit-robot.
+    if: github.repository == 'lit/lit' && github.actor == 'lit-robot'
 
     name: Generate Release Image
     runs-on: ubuntu-latest
