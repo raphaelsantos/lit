@@ -1,0 +1,35 @@
+name: Generate Release Image
+
+on: [pull_request]
+
+jobs:
+  release-image:
+    # Don't run on forks.
+    if: github.repository == 'lit/lit'
+
+    name: Generate Release Image
+    environment: Changesets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        working-directory: lit
+        run: npm ci
+
+      - name: Build release-image script
+        working-directory: lit/packages/internal-scripts
+        run: npm run build
+
+      - name: Generate release image artifact
+        with:
+          cwd: lit
+        run: |
+          node_modules/.bin/release-image -m <(node scripts/fetch-release-changelog.js <<< ${{ github.event.pull_request.number }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: releaseimage
+          path: release.png

@@ -54,4 +54,4 @@ const {body} = response;
 // Strip the preamble from the PR description, and only capture the changelog
 // contents.
 const headingIdx = body.indexOf('# Releases');
-console.log(body.slice(headingIdx));
+console.log(body.slice(headingIdx === -1 ? 0 : headingIdx));
